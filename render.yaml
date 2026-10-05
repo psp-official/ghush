@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: telegram-stars-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn bot:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: OWNER_TELEGRAM_ID
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: FRAGMENT_WALLET_SEED
+        sync: false
+      - key: FRAGMENT_WALLET_ADDRESS
+        sync: false
+      - key: FRAGMENT_ACCOUNT_INDEX
+        sync: false
+      - key: PAYMENT_METHOD
+        value: ton
+      - key: ENABLE_PURCHASES
+        value: "false"
+      - key: MAX_STARS
+        value: "1000000"
+      - key: FRAGMENT_API_URL
+        value: https://api.fragment-api.space
