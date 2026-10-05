@@ -15,17 +15,23 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         sync: false
+      - key: FRAGMENT_API_URL
+        value: https://api.fragment-api.space
       - key: FRAGMENT_WALLET_SEED
         sync: false
+      - key: FRAGMENT_WALLET_MNEMONIC
+        sync: false
+      - key: FRAGMENT_API_MODE
+        value: no_kyc
+      - key: FRAGMENT_PAYMENT_METHOD
+        value: ton
       - key: FRAGMENT_WALLET_ADDRESS
         sync: false
       - key: FRAGMENT_ACCOUNT_INDEX
         sync: false
-      - key: PAYMENT_METHOD
-        value: ton
+      - key: FRAGMENT_COOKIES_BASE64
+        sync: false
       - key: ENABLE_PURCHASES
         value: "false"
       - key: MAX_STARS
         value: "1000000"
-      - key: FRAGMENT_API_URL
-        value: https://api.fragment-api.space
