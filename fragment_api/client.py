@@ -1,9 +1,3 @@
-"""
-Fragment API Client
-
-Simple client for purchasing Telegram Stars and Premium.
-"""
-
 import base64
 import json
 import time
