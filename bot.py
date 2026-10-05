@@ -42,6 +42,15 @@ if ACCOUNT_INDEX_RAW:
     if ACCOUNT_INDEX < 0:
         raise RuntimeError("FRAGMENT_ACCOUNT_INDEX must be >= 0")
 
+# Read-only TON balance settings. The address is public and does not expose the seed.
+TON_WALLET_ADDRESS = (
+    os.getenv("TON_WALLET_ADDRESS") or WALLET_ADDRESS or ""
+).strip()
+TON_BALANCE_URL = os.getenv(
+    "TON_BALANCE_URL",
+    "https://toncenter.com/api/v2/getAddressBalance",
+).strip()
+
 _purchase_lock = threading.Lock()
 
 
@@ -127,6 +136,39 @@ def parse_star_command(text: str):
     if amount > MAX_STARS:
         raise ValueError(f"အများဆုံး {MAX_STARS:,} Stars အထိပဲ ခွင့်ပြုထားပါတယ်။")
     return username, amount
+
+
+def get_ton_balance() -> tuple[str, int]:
+    """Return (address, balance_nanotons) using the public TON wallet address.
+
+    This is read-only and never sends the wallet seed anywhere.
+    """
+    if not TON_WALLET_ADDRESS:
+        raise RuntimeError(
+            "TON_WALLET_ADDRESS / FRAGMENT_WALLET_ADDRESS မသတ်မှတ်ရသေးပါ။ "
+            "Render Environment ထဲမှာ public TON wallet address ထည့်ပါ။"
+        )
+    response = requests.get(
+        TON_BALANCE_URL,
+        params={"address": TON_WALLET_ADDRESS},
+        timeout=20,
+    )
+    response.raise_for_status()
+    data = response.json()
+    if not data.get("ok", True):
+        raise RuntimeError(str(data.get("error", "TON balance API error")))
+    raw = data.get("result")
+    try:
+        balance_nano = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("TON balance response မမှန်ပါ။") from exc
+    return TON_WALLET_ADDRESS, balance_nano
+
+
+def format_ton_balance(balance_nano: int) -> str:
+    whole = balance_nano // 1_000_000_000
+    frac = balance_nano % 1_000_000_000
+    return f"{whole}.{frac:09d}".rstrip("0").rstrip(".") or "0"
 
 
 def purchase_job(chat_id: int, username: str, amount: int) -> None:
@@ -234,7 +276,7 @@ async def telegram_webhook(
         send_message(
             chat_id,
             "🤖 <b>Telegram Stars Bot</b>\n\n"
-            "အသုံးပြုရန်:\n<code>.star @username 50</code>\n\n"
+            "အသုံးပြုရန်:\n<code>.star @username 50</code>\n<code>.bal</code> — Wallet TON balance စစ်ရန်\n\n"
             "အနည်းဆုံး 50 Stars ပါ။",
         )
         return JSONResponse({"ok": True})
@@ -251,6 +293,25 @@ async def telegram_webhook(
                 f"Payment: <b>{html.escape(PAYMENT_METHOD)}</b>\n"
                 f"Wallet selector: <b>{'configured' if (WALLET_ADDRESS or ACCOUNT_INDEX is not None) else 'seed-only'}</b>",
             )
+        return JSONResponse({"ok": True})
+
+    if text.lower() in {".bal", "/bal", ".balance", "/balance"}:
+        if not is_owner(user_id):
+            send_message(chat_id, "⛔ Owner only")
+            return JSONResponse({"ok": True})
+        try:
+            address, balance_nano = get_ton_balance()
+            balance_ton = format_ton_balance(balance_nano)
+            status = "🟢 Ready" if balance_nano >= 1_000_000_000 else "🟠 Below 1 TON minimum"
+            send_message(
+                chat_id,
+                "💰 <b>Wallet Balance</b>\n\n"
+                f"👛 Address: <code>{html.escape(address)}</code>\n"
+                f"💎 TON: <b>{balance_ton} TON</b>\n"
+                f"📌 Status: <b>{status}</b>",
+            )
+        except Exception as exc:
+            send_message(chat_id, f"❌ Balance error:\n<code>{html.escape(str(exc))}</code>")
         return JSONResponse({"ok": True})
 
     if text.lower() in {".price", "/price"}:
